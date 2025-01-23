@@ -124,57 +124,22 @@ pub fn main() !void {
     const str: [:0]u8 = try allocator.dupeZ(u8, s);
     defer allocator.free(str);
 
-    // std.debug.print("phonemizing: {s}\n", .{args[1]});
-    // const output = try phoneme.Phonemize(allocator, args[1], .{ .voice = "en", .mode = .IPA_MODE });
+    std.debug.print("phonemizing: {s}\n", .{args[1]});
+    const output = try phoneme.Phonemize2(allocator, args[1], .{ .voice = "en", .mode = .IPA_MODE });
 
     std.debug.print("phonemizing: {s}\n", .{str});
-    const output = try phoneme.Phonemize2(allocator, str, .{ .voice = "en", .mode = .IPA_MODE });
+    // const output = try phoneme.Phonemize2(allocator, str, .{ .voice = "en" });
     defer allocator.free(output);
 
-    const _ids = try pid.phonemes_to_ids(allocator, output[0], .{});
-    for (_ids, 0..) |value, i| {
-        std.debug.print("mine: {d} piper: {d}\n", .{ value, phoneme_ids[i] });
-    }
-
-    for (output) |value| {
-        std.debug.print("main: {s}\n", .{value});
-        const ids = try pid.phonemes_to_ids(allocator, value, .{});
-
-        for (ids) |_c| {
-            std.debug.print("{d}\n", .{_c});
-        }
-
-        try synth.load_model(allocator, model_path, ids, .{});
-    }
+    std.debug.print("{any}\n", .{output});
+    // const phonemes = "hˌaʊ ɑːɹ juː dˈuːɪŋ?";
+    // try std.testing.expectEqualSlices(u8, phonemes, output[0]);
 
     // for (output) |value| {
-    // defer allocator.free(value);
+    const value = output[output.len - 1];
+        const _ids = try pid.phonemes_to_ids(allocator, value, .{});
+        std.debug.print("{any}\n", .{_ids});
+
+        try synth.load_model(allocator, model_path, _ids, .{});
     // }
-
-    // std.debug.print("{any}\n", .{output});
-
-    // try synth.load_model(allocator, model_path, output, .{});
 }
-
-// test "matching phonemes" {
-//     const allocator = std.testing.allocator;
-//
-//     const s: [:0]const u8 = "How are you doing?";
-//     const str: [:0]u8 = try allocator.dupeZ(u8, s);
-//     defer allocator.free(str);
-//
-//     const output = try phoneme.Phonemize(allocator, str, .{ .voice = "en" });
-//     defer allocator.free(output);
-//
-//     for (output) |value| {
-//         std.debug.print(" {d}\n", .{value});
-//     }
-//
-//     const pids = try allocator.dupe(i64, phoneme_ids);
-//     defer allocator.free(pids);
-//
-//     std.debug.print("pids len: {d}\n", .{pids.len});
-//     std.debug.print("pids other len: {d}\n", .{output.len});
-//
-//     try std.testing.expectEqualDeep(output, pids);
-// }

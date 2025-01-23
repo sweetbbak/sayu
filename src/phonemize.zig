@@ -237,7 +237,7 @@ pub fn Phonemize2(allocator: Allocator, input: [:0]const u8, cfg: Config) ![][]c
         const cstr = c.espeak_TextToPhonemesWithTerminator(
             &str,
             c.espeakCHARS_AUTO,
-            0x1,
+            @intFromEnum(cfg.mode),
             @ptrCast(&terminator),
         );
 
