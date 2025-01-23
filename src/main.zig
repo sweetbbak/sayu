@@ -1,6 +1,7 @@
 const std = @import("std");
 const phoneme = @import("phonemize.zig");
 const synth = @import("synth.zig");
+const pid = @import("phoneme_id.zig");
 // const onnx = @import("onnxruntime");
 
 const c = @cImport({
@@ -60,22 +61,47 @@ const phoneme_ids: []const i64 = &.{
     2,
 };
 
-pub fn main() !void {
+pub fn read_stdin(allocator: std.mem.Allocator) ![]i64 {
+    const reader = std.io.getStdIn().reader();
+    var bufio = std.io.bufferedReader(reader);
+    const stdin = bufio.reader();
+    var buf: [10]u8 = undefined;
+
+    var list = std.ArrayList(i64).init(allocator);
+    defer list.deinit();
+
+    while (try stdin.readUntilDelimiterOrEof(buf[0..], '\n')) |line| {
+        const int = try std.fmt.parseInt(i64, line, 10);
+        try list.append(int);
+    }
+
+    return list.toOwnedSlice();
+}
+
+pub fn _main() !void {
     var gpa = std.heap.GeneralPurposeAllocator(.{}){};
     const allocator = gpa.allocator();
     defer _ = gpa.deinit();
 
-    const s: [:0]const u8 = "How are you doing? I am fine! Okay, then.";
-    const str: [:0]u8 = try allocator.dupeZ(u8, s);
-    defer allocator.free(str);
+    // const s: [:0]const u8 = "How are you doing? I am fine! Okay, then.";
+    // const str: [:0]u8 = try allocator.dupeZ(u8, s);
+    // defer allocator.free(str);
+    //
+    // const output = try phoneme.Phonemize(allocator, str, .{ .voice = "en" });
+    // defer allocator.free(output);
+    //
+    // for (output) |value| {
+    //     std.debug.print(" {d}\n", .{value});
+    // }
 
-    const output = try phoneme.Phonemize(allocator, str, .{ .voice = "en" });
-    defer allocator.free(output);
+    const output = try read_stdin(allocator);
 
-    const pids = try allocator.dupe(i64, phoneme_ids);
-    defer allocator.free(pids);
+    // const pids = try allocator.dupe(i64, phoneme_ids);
+    // defer allocator.free(pids);
+    // try synth.load_model(allocator, model_path, pids, .{});
 
-    try synth.load_model(allocator, model_path, pids, .{});
+    // try synth.load_model(allocator, model_path, output.ids, .{});
+    try synth.load_model(allocator, model_path, output, .{});
 
     // std.debug.print("output:\n", .{});
     // for (output) |value| {
@@ -86,37 +112,69 @@ pub fn main() !void {
     // }
 }
 
-pub fn test_it() !void {
-    const buflen = 500;
-    const options = 0;
+pub fn main() !void {
+    var gpa = std.heap.GeneralPurposeAllocator(.{}){};
+    const allocator = gpa.allocator();
+    defer _ = gpa.deinit();
 
-    const exit = c.espeak_Initialize(c.AUDIO_OUTPUT_SYNCH_PLAYBACK, buflen, null, options);
-    if (exit < 0) return error.Init;
-    defer {
-        _ = c.espeak_Terminate();
+    const args = try std.process.argsAlloc(allocator);
+    defer std.process.argsFree(allocator, args);
+
+    const s: [:0]const u8 = "How are you doing?";
+    const str: [:0]u8 = try allocator.dupeZ(u8, s);
+    defer allocator.free(str);
+
+    // std.debug.print("phonemizing: {s}\n", .{args[1]});
+    // const output = try phoneme.Phonemize(allocator, args[1], .{ .voice = "en", .mode = .IPA_MODE });
+
+    std.debug.print("phonemizing: {s}\n", .{str});
+    const output = try phoneme.Phonemize2(allocator, str, .{ .voice = "en", .mode = .IPA_MODE });
+    defer allocator.free(output);
+
+    const _ids = try pid.phonemes_to_ids(allocator, output[0], .{});
+    for (_ids, 0..) |value, i| {
+        std.debug.print("mine: {d} piper: {d}\n", .{ value, phoneme_ids[i] });
     }
 
-    // const voice: [:0]const u8 = "English";
-    const voice: [:0]const u8 = "en-us";
-    if (c.espeak_SetVoiceByName(@ptrCast(voice)) < 0) {
-        return error.SetVoice;
+    for (output) |value| {
+        std.debug.print("main: {s}\n", .{value});
+        const ids = try pid.phonemes_to_ids(allocator, value, .{});
+
+        for (ids) |_c| {
+            std.debug.print("{d}\n", .{_c});
+        }
+
+        try synth.load_model(allocator, model_path, ids, .{});
     }
 
-    const id: [*c]c_uint = 0;
-    const uid: ?*anyopaque = null;
+    // for (output) |value| {
+    // defer allocator.free(value);
+    // }
 
-    // std.debug.print("saying '{s}'\n", .{@as([]const u8, @ptrCast(text))});
-    // _ = c.espeak_Synth(text, 500, 0, 0, 0, c.espeakCHARS_AUTO, id, uid);
-    _ = c.espeak_Synth(null, 500, 0, 0, 0, c.espeakCHARS_AUTO, id, uid);
+    // std.debug.print("{any}\n", .{output});
 
-    var _str: ?*const anyopaque = "hello world.";
-    const _cstr = c.espeak_TextToPhonemes(&_str, c.espeakCHARS_UTF8, 0x2);
-    std.debug.print("{s}\n", .{std.mem.span(_cstr)});
-
-    // const str = try allocator.dupeZ(u8, "hello world.");
-    // defer allocator.free(str);
-    // var str_ptr: ?*const anyopaque = str.ptr;
-
-    // const cstr = c.espeak_TextToPhonemes(&str_ptr, c.espeakCHARS_8BIT, IPA_MODE);
-    // std.debug.print("{s}\n", .{std.mem.span(cstr)});
+    // try synth.load_model(allocator, model_path, output, .{});
 }
+
+// test "matching phonemes" {
+//     const allocator = std.testing.allocator;
+//
+//     const s: [:0]const u8 = "How are you doing?";
+//     const str: [:0]u8 = try allocator.dupeZ(u8, s);
+//     defer allocator.free(str);
+//
+//     const output = try phoneme.Phonemize(allocator, str, .{ .voice = "en" });
+//     defer allocator.free(output);
+//
+//     for (output) |value| {
+//         std.debug.print(" {d}\n", .{value});
+//     }
+//
+//     const pids = try allocator.dupe(i64, phoneme_ids);
+//     defer allocator.free(pids);
+//
+//     std.debug.print("pids len: {d}\n", .{pids.len});
+//     std.debug.print("pids other len: {d}\n", .{output.len});
+//
+//     try std.testing.expectEqualDeep(output, pids);
+// }

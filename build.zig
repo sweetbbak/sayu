@@ -87,6 +87,9 @@ pub fn build(b: *std.Build) void {
         .target = target,
         .optimize = optimize,
     });
+    exe_unit_tests.root_module.addImport("onnxruntime", onnx_dep.module("zig-onnxruntime"));
+    exe_unit_tests.linkLibrary(espeak.artifact("espeak-ng"));
+    exe_unit_tests.addIncludePath(hpath);
 
     const phoneme_id_unit_tests = b.addTest(.{
         .root_source_file = b.path("src/phoneme_id.zig"),

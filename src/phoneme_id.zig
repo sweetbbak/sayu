@@ -1,10 +1,27 @@
 const std = @import("std");
 const phoneme = @import("phonemize.zig");
+const piper = @import("piper.zig");
+const pc = piper.PiperConfig;
 const PhonemeId = @import("phonemize.zig").PhonemeId;
+const Phoneme = @import("phonemize.zig").Phoneme;
 const Allocator = std.mem.Allocator;
 
+pub const PhonemeIdConfig = struct {
+    idPad: PhonemeId = 0, // padding (optionally interspersed)
+    idBos: PhonemeId = 1, // beginning of sentence
+    idEos: PhonemeId = 2, // end of sentence
+
+    pad: Phoneme = '_',
+    bos: Phoneme = '^',
+    eos: Phoneme = '$',
+
+    interspersePad: bool = true,
+    addBos: bool = true,
+    addEos: bool = true,
+};
+
 // pub fn GetPhonemeId(codepoint: u32) phoneme.PhonemeId {
-pub inline fn GetPhonemeId(codepoint: u32) PhonemeId {
+pub inline fn GetPhonemeId(codepoint: u32) !PhonemeId {
     switch (codepoint) {
         '_' => return 0,
         '^' => return 1,
@@ -170,7 +187,7 @@ pub inline fn GetPhonemeId(codepoint: u32) PhonemeId {
         // Czech
         // '\u{031}' => 157,
         '\u{030a}' => return 158,
-        else => return 0,
+        else => return error.NoMatch,
     }
 }
 
@@ -191,26 +208,98 @@ pub fn to_phoneme_ids(allocator: Allocator, sentence: [][]const u8) ![]PhonemeId
     return list.toOwnedSlice();
 }
 
+pub fn sentence_to_ids(allocator: Allocator, line: []const u8) ![]PhonemeId {
+    var list = std.ArrayList(PhonemeId).init(allocator);
+    defer list.deinit();
+
+    var uni = try std.unicode.Utf8View.init(line);
+    var iterator = uni.iterator();
+
+    while (iterator.nextCodepoint()) |codepoint| {
+        const id = GetPhonemeId(codepoint);
+        try list.append(id);
+    }
+
+    return list.toOwnedSlice();
+}
+
+pub fn phonemes_to_ids(allocator: Allocator, line: []const u8, cfg: PhonemeIdConfig) ![]PhonemeId {
+    var list = std.ArrayList(PhonemeId).init(allocator);
+    defer list.deinit();
+
+    var uni = try std.unicode.Utf8View.init(line);
+    var iterator = uni.iterator();
+
+    if (cfg.addBos) {
+        // wrong?
+        // try list.append(cfg.bos);
+        try list.append(cfg.idBos);
+    }
+
+    while (iterator.nextCodepoint()) |codepoint| {
+        if (cfg.interspersePad) {
+            // try list.append(cfg.pad);
+            try list.append(cfg.idPad);
+        }
+
+        const id = GetPhonemeId(codepoint) catch |err| switch (err) {
+            else => {
+                const xxx = line[iterator.i];
+                std.debug.print("no match: {c} - {d} - {s}\n", .{xxx, codepoint, line});
+                std.os.linux.exit(1);
+            }
+        };
+        try list.append(id);
+
+    }
+
+    if (cfg.addEos) {
+        // try list.append(cfg.eos);
+        try list.append(cfg.idEos);
+    }
+
+    return list.toOwnedSlice();
+}
+
 test "get phoneme ID" {
     const u = try std.unicode.utf8Decode("\u{030a}");
     const _id = GetPhonemeId(u);
     try std.testing.expectEqual(158, _id);
 
     const allocator = std.testing.allocator;
-    const input = "hello world!";
+    const input = "How are you doing";
+    const input_ids = &[_]i64{ 1, 0, 20, 0, 121, 0, 14, 0, 100, 0, 3, 0, 51, 0, 122, 0, 88, 0, 3, 0, 22, 0, 33, 0, 122, 0, 3, 0, 17, 0, 120, 0, 33, 0, 122, 0, 74, 0, 44, 0, 13, 0, 2 };
 
-    const output = try phoneme.Phonemize(allocator, input, .{});
+    const output = try phoneme.Phonemize(allocator, input, .{ .mode = .PHONETIC_MODE });
     defer allocator.free(output);
 
-    const file = try std.fs.cwd().createFile("output.txt", .{});
-    defer file.close();
-    const writer = file.writer().any();
-
-    for (output) |value| {
-        for (value) |codepoint| {
-            const id = GetPhonemeId(codepoint);
-            try std.fmt.format(writer, "{c} {d}\n", .{ codepoint, id });
-            std.debug.print("{d}\n", .{id});
-        }
+    for (output, 0..) |value, i| {
+        const expected = input_ids[i];
+        std.debug.print("{d} {d}\n", .{ value, expected });
+        try std.testing.expectEqual(value, expected);
     }
 }
+
+// test "get phoneme ID" {
+//     const u = try std.unicode.utf8Decode("\u{030a}");
+//     const _id = GetPhonemeId(u);
+//     try std.testing.expectEqual(158, _id);
+//
+//     const allocator = std.testing.allocator;
+//     const input = "hello world!";
+//
+//     const output = try phoneme.Phonemize(allocator, input, .{});
+//     defer allocator.free(output);
+//
+//     const file = try std.fs.cwd().createFile("output.txt", .{});
+//     defer file.close();
+//     const writer = file.writer().any();
+//
+//     for (output) |value| {
+//         for (value) |codepoint| {
+//             const id = GetPhonemeId(codepoint);
+//             try std.fmt.format(writer, "{c} {d}\n", .{ codepoint, id });
+//             std.debug.print("{d}\n", .{id});
+//         }
+//     }
+// }

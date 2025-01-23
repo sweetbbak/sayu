@@ -190,9 +190,6 @@ pub fn load_model(
         // speaker_tensor,
     });
 
-    // const ort_outputs = try allocator.dupe(?*onnx.c_api.OrtValue, &.{audio_output});
-    // onnx_instance.setManagedInputsOutputs(ort_inputs, ort_outputs);
-
     const start = try std.time.Instant.now();
     // try onnx_instance.run();
 
@@ -222,12 +219,6 @@ pub fn load_model(
         }
     }
 
-    // var buf: [1024 * 2]f32 = mem.zeroes([1024 * 2]f32);
-    // var buf: [*]f32 = undefined;
-    // var buf: []f32 = try allocator.alloc(f32, 1024 * 10);
-    // var buf: []f32 = try allocator.alloc(f32, 41000);
-    // defer allocator.free(buf);
-
     // const elem_count = try onnx.getTensorElementCount(allocator, onnx_instance.ort_api, output_tensor);
     const elem_count: usize = @intCast(try onnx.getTensorShapeCount(allocator, onnx_instance.ort_api, output_tensor));
 
@@ -241,11 +232,9 @@ pub fn load_model(
     );
 
     var max_audio_value: f32 = 0.01;
-    var i: usize = 0;
-    // const newbuf = buf[0..elem_count];
     const newbuf = buf[0..@intCast(elem_count)];
 
-    while (i < newbuf.len) : (i += 1) {
+    for (newbuf, 0..) |_, i| {
         const value = @abs(newbuf[i]);
         if (value > max_audio_value) {
             max_audio_value = value;
@@ -253,26 +242,23 @@ pub fn load_model(
     }
     std.debug.print("max audio value: {e}\n", .{max_audio_value});
 
-    var audio: []u16 = try allocator.alloc(u16, elem_count);
+    var audio: []i16 = try allocator.alloc(i16, elem_count);
     defer allocator.free(audio);
 
-    const min: f32 = std.math.minInt(u16);
-    const max: f32 = std.math.maxInt(u16);
+    const min: f32 = std.math.minInt(i16);
+    const max: f32 = std.math.maxInt(i16);
     const audio_scale: f32 = (MAX_WAV_VALUE / @as(f32, @max(0.01, max_audio_value)));
 
-    var x: usize = 0;
-    while (x < elem_count) : (x += 1) {
-        // const val: f32 = (newbuf[i] * @as(f32, audio_scale));
-        const val: f32 = (buf[x] * audio_scale);
-        // const t: u16 = @intCast(@max(min, @min(val, max)));
+    for (elem_count, 0..) |_, i| {
+        const val: f32 = (buf[i] * audio_scale);
 
-        const audio_value: u16 = @intFromFloat(std.math.clamp(
+        const audio_value: i16 = @intFromFloat(std.math.clamp(
             val,
             min,
             max,
         ));
-        std.debug.print("*** {e} {d}\n", .{ val, audio_value });
-        audio[x] = audio_value;
+
+        audio[i] = audio_value;
     }
 
     const stdout_file = std.io.getStdOut().writer();
@@ -280,7 +266,7 @@ pub fn load_model(
     const stdout = bw.writer();
 
     for (audio) |value| {
-        try stdout.writeInt(u16, value, .little);
+        try stdout.writeInt(i16, value, .little);
     }
 
     try bw.flush();
