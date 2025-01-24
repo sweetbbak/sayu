@@ -2,6 +2,13 @@ const std = @import("std");
 const phoneme = @import("phonemize.zig");
 const synth = @import("synth.zig");
 const pid = @import("phoneme_id.zig");
+const log = @import("std").log;
+const logFn = @import("logger/log.zig").myLogFn;
+
+pub const std_options: std.Options = .{
+    .logFn = logFn,
+    .log_level = .debug,
+};
 
 const IPA_MODE = 0x2;
 
@@ -10,6 +17,7 @@ pub fn opaqPtrTo(ptr: ?*anyopaque, comptime T: type) T {
 }
 
 const model_path: [:0]const u8 = "/home/sweet/ssd/pipertts/ivona_tts/amy.onnx";
+// const model_path: [:0]const u8 = "./kokoro-v0_19.onnx";
 
 // "How are you doing?" phoneme IDs
 const phoneme_ids: []const i64 = &.{ 1, 0, 20, 0, 121, 0, 14, 0, 100, 0, 3, 0, 51, 0, 122, 0, 88, 0, 3, 0, 22, 0, 33, 0, 122, 0, 3, 0, 17, 0, 120, 0, 33, 0, 122, 0, 74, 0, 44, 0, 13, 0, 2 };
@@ -50,15 +58,15 @@ pub fn main() !void {
     const args = try std.process.argsAlloc(allocator);
     defer std.process.argsFree(allocator, args);
 
-    std.debug.print("phonemizing: {s}\n", .{args[1]});
-    const output = try phoneme.Phonemize2(allocator, args[1], .{ .voice = "en", .mode = .IPA_MODE });
+    log.info("phonemizing: {s}\n", .{args[1]});
+    const output = try phoneme.Phonemize(allocator, args[1], .{ .voice = "en", .mode = .IPA_MODE });
     defer allocator.free(output);
 
     std.debug.print("{any}\n", .{output});
 
-    const value = output[output.len - 1];
-    const _ids = try pid.phonemes_to_ids(allocator, value, .{});
-    std.debug.print("{any}\n", .{_ids});
-
-    try synth.load_model(allocator, model_path, _ids, .{});
+    for (output) |value| {
+        const _ids = try pid.phonemes_to_ids(allocator, value, .{});
+        std.debug.print("{any}\n", .{_ids});
+        try synth.load_model(allocator, model_path, _ids, .{});
+    }
 }

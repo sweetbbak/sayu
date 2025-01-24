@@ -1,120 +1,38 @@
 const onnx = @import("onnxruntime");
 const std = @import("std");
+const log = @import("std").log;
 const mem = std.mem;
 const Allocator = std.mem.Allocator;
 
-pub const SpeakerId = u64;
-pub const PhonemeId = i64;
+pub const MAX_WAV_VALUE: f32 = 32767.0;
 
-pub const eSpeakConfig = struct {
-    voice: []const u8 = "en-us",
-};
+const input_names = [_][:0]const u8{ "input", "input_lengths", "scales", "sid" };
+const output_names = [_][:0]const u8{"output"};
 
-pub const PiperConfig = struct {
-    eSpeakDataPath: []const u8,
-    useESpeak: bool = true,
-};
-
-pub const PhonemeType = enum { eSpeakPhonemes, TextPhonemes };
-
-pub const PhonemizeConfig = struct {
-    // phonemeType: PhonemeType = eSpeakPhonemes,
-    // std::optional<std::map<Phoneme, std::vector<Phoneme>>> phonemeMap;
-    // std::map<Phoneme, std::vector<PhonemeId>> phonemeIdMap;
-
-    idPad: PhonemeId = 0, // padding (optionally interspersed)
-    idBos: PhonemeId = 1, // beginning of sentence
-    idEos: PhonemeId = 2, // end of sentence
-    interspersePad: bool = true,
-
-    eSpeak: eSpeakConfig,
-};
-
-pub const SynthesisConfig = struct {
+pub const Config = struct {
     // VITS inference settings
     noiseScale: f64 = 0.667,
     lengthScale: f64 = 1.0,
     noiseW: f64 = 0.8,
-
     // Audio settings
     sampleRate: u16 = 22050,
     sampleWidth: u8 = 2, // 16-bit
     channels: u8 = 1, // mono
-
     // Speaker id from 0 to numSpeakers - 1
     // std::optional<SpeakerId> speakerId;
 
     // Extra silence
     sentenceSilenceSeconds: f64 = 0.2,
-    // std::optional<std::map<piper::Phoneme, float>> phonemeSilenceSeconds;
 };
-
-pub const ModelConfig = struct {
-    numSpeakers: u8,
-
-    // speaker name -> id
-    // std::optional<std::map<std::string, SpeakerId>> speakerIdMap;
-};
-
-pub const ModelSession = struct {
-    session: onnx.c_api.OrtSession,
-    env: onnx.c_api.OrtEnv,
-    allocator: onnx.c_api.struct_OrtApi.GetAllocatorWithDefaultOptions(),
-    options: onnx.OnnxInstanceOpts,
-    //   Ort::AllocatorWithDefaultOptions allocator;
-    //   Ort::SessionOptions options;
-    //   Ort::Env env;
-    //
-    //   ModelSession() : onnx(nullptr){};
-};
-
-pub const SynthesisResult = struct {
-    inferSeconds: f64,
-    audioSeconds: f64,
-    realTimeFactor: f64,
-};
-
-pub const Voice = struct {
-    // json configRoot;
-    phonemizeConfig: PhonemizeConfig,
-    synthesisConfig: SynthesisConfig,
-    modelConfig: ModelConfig,
-    session: ModelSession,
-};
-
-pub const MAX_WAV_VALUE: f32 = 32767.0;
-
-const InferenceState = struct {
-    allocator: std.mem.Allocator,
-    onnx_instance: *onnx.OnnxInstance,
-    // audio_stream: AudioFileStream,
-    audio_read_buffer: [][]f32,
-    audio_read_n_frames: usize,
-    /// Progress this many samples for every sample as a rudiementary form of downsampling
-    /// e.g. if this is 3, then we will skip 2 samples after every sample, effectively
-    /// downsampling the audio from 48kHz to 16kHz
-    sample_tick_rate: usize,
-    window_size: usize,
-    // Model inputs/outputs
-    pcm: []f32,
-    h: []f32,
-    c: []f32,
-    vad: []f32,
-    hn: []f32,
-    cn: []f32,
-};
-
-const input_names = [_][:0]const u8{ "input", "input_lengths", "scales", "sid" };
-const output_names = [_][:0]const u8{"output"};
 
 pub fn load_model(
     allocator: Allocator,
     model_path: [:0]const u8,
     phoneme_ids: []i64,
-    synthesisConfig: SynthesisConfig,
-    // session: ModelSession,
+    synthesisConfig: Config,
 ) !void {
     _ = synthesisConfig; // autofix
+
     const onnx_opts = onnx.OnnxInstanceOpts{
         .log_id = "\x1b[32m[PIPER ZIG]\x1b[0m",
         .log_level = .warning,

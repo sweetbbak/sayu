@@ -4,16 +4,12 @@ const id = @import("phoneme_id.zig");
 pub const SpeakerId = u64;
 pub const PhonemeId = i64;
 
-pub const eSpeakConfig = struct {
-    voice: []const u8 = "en-us",
-};
+pub const MAX_WAV_VALUE: f32 = 32767.0;
 
 pub const PiperConfig = struct {
     eSpeakDataPath: []const u8,
     useESpeak: bool = true,
 };
-
-pub const PhonemeType = enum { eSpeakPhonemes, TextPhonemes };
 
 pub const PhonemizeConfig = struct {
     // phonemeType: PhonemeType = eSpeakPhonemes,
@@ -27,6 +23,20 @@ pub const PhonemizeConfig = struct {
 
     eSpeak: eSpeakConfig,
 };
+
+pub const Voice = struct {
+    // json configRoot;
+    phonemizeConfig: PhonemizeConfig,
+    synthesisConfig: SynthesisConfig,
+    modelConfig: ModelConfig,
+    session: ModelSession,
+};
+
+pub const eSpeakConfig = struct {
+    voice: []const u8 = "en-us",
+};
+
+pub const PhonemeType = enum { eSpeakPhonemes, TextPhonemes };
 
 pub const SynthesisConfig = struct {
     // VITS inference settings
@@ -71,13 +81,3 @@ pub const SynthesisResult = struct {
     audioSeconds: f64,
     realTimeFactor: f64,
 };
-
-pub const Voice = struct {
-    // json configRoot;
-    phonemizeConfig: PhonemizeConfig,
-    synthesisConfig: SynthesisConfig,
-    modelConfig: ModelConfig,
-    session: ModelSession,
-};
-
-pub const MAX_WAV_VALUE: f32 = 32767.0;

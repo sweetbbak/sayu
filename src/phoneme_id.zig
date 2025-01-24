@@ -21,7 +21,7 @@ pub const PhonemeIdConfig = struct {
     addEos: bool = true,
 };
 
-// pub fn GetPhonemeId(codepoint: u32) phoneme.PhonemeId {
+// idk why this isnt working
 pub inline fn GetPhonemeId(codepoint: u32) !PhonemeId {
     switch (codepoint) {
         '_' => return 0,
@@ -190,38 +190,6 @@ pub inline fn GetPhonemeId(codepoint: u32) !PhonemeId {
         '\u{030a}' => return 158,
         else => return error.NoMatch,
     }
-}
-
-pub fn to_phoneme_ids(allocator: Allocator, sentence: [][]const u8) ![]PhonemeId {
-    var list = std.ArrayList(PhonemeId).init(allocator);
-    defer list.deinit();
-
-    for (sentence) |line| {
-        var uni = try std.unicode.Utf8View.init(line);
-        var iterator = uni.iterator();
-
-        while (iterator.nextCodepoint()) |codepoint| {
-            const id = GetPhonemeId(codepoint);
-            try list.append(id);
-        }
-    }
-
-    return list.toOwnedSlice();
-}
-
-pub fn sentence_to_ids(allocator: Allocator, line: []const u8) ![]PhonemeId {
-    var list = std.ArrayList(PhonemeId).init(allocator);
-    defer list.deinit();
-
-    var uni = try std.unicode.Utf8View.init(line);
-    var iterator = uni.iterator();
-
-    while (iterator.nextCodepoint()) |codepoint| {
-        const id = GetPhonemeId(codepoint);
-        try list.append(id);
-    }
-
-    return list.toOwnedSlice();
 }
 
 pub fn phonemes_to_ids(allocator: Allocator, line: []const u8, cfg: PhonemeIdConfig) ![]PhonemeId {
