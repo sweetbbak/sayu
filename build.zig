@@ -55,10 +55,11 @@ pub fn build(b: *std.Build) void {
     });
 
     exe.root_module.addImport("onnxruntime", onnx_dep.module("zig-onnxruntime"));
-    // exe.linkSystemLibrary("sndfile");
+
     exe.linkLibrary(espeak.artifact("espeak-ng"));
-    const hpath = espeak.path("include");
-    exe.addIncludePath(hpath);
+    const espeak_include = espeak.path("include");
+    exe.addIncludePath(espeak_include);
+
 
     exe.linkLibC();
     b.installArtifact(exe);
@@ -87,9 +88,11 @@ pub fn build(b: *std.Build) void {
         .target = target,
         .optimize = optimize,
     });
+
     exe_unit_tests.root_module.addImport("onnxruntime", onnx_dep.module("zig-onnxruntime"));
+
     exe_unit_tests.linkLibrary(espeak.artifact("espeak-ng"));
-    exe_unit_tests.addIncludePath(hpath);
+    exe_unit_tests.addIncludePath(espeak_include);
 
     const phoneme_id_unit_tests = b.addTest(.{
         .root_source_file = b.path("src/phoneme_id.zig"),
@@ -97,7 +100,7 @@ pub fn build(b: *std.Build) void {
         .optimize = optimize,
     });
     phoneme_id_unit_tests.linkLibrary(espeak.artifact("espeak-ng"));
-    phoneme_id_unit_tests.addIncludePath(hpath);
+    phoneme_id_unit_tests.addIncludePath(espeak_include);
 
     const run_exe_unit_tests = b.addRunArtifact(exe_unit_tests);
     const run_phoneme_id_unit_tests = b.addRunArtifact(phoneme_id_unit_tests);

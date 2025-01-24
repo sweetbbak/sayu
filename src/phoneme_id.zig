@@ -237,25 +237,15 @@ pub fn phonemes_to_ids(allocator: Allocator, line: []const u8, cfg: PhonemeIdCon
     const map = result.config.phoneme_id_map.map;
 
     if (cfg.addBos) {
-        // wrong?
-        // try list.append(cfg.bos);
         try list.append(cfg.idBos);
     }
 
     while (iterator.nextCodepointSlice()) |codepoint| {
         if (cfg.interspersePad) {
-            // try list.append(cfg.pad);
             try list.append(cfg.idPad);
         }
 
         const ids = map.get(codepoint);
-        // const id = GetPhonemeId(codepoint) catch |err| switch (err) {
-        //     else => {
-        //         const xxx = line[iterator.i];
-        //         std.debug.print("no match: {c} - {d} - {s}\n", .{xxx, codepoint, line});
-        //         std.os.linux.exit(1);
-        //     }
-        // };
 
         if (ids) |_ids| {
             for (_ids) |id| {
@@ -281,19 +271,15 @@ test "test phonemes to ids" {
     try std.testing.expectEqual(158, _id);
 
     const allocator = std.testing.allocator;
-    // const input = "How are you doing";
-    const input_ids = &[_]i64{ 1, 0, 20, 0, 121, 0, 14, 0, 100, 0, 3, 0, 51, 0, 122, 0, 88, 0, 3, 0, 22, 0, 33, 0, 122, 0, 3, 0, 17, 0, 120, 0, 33, 0, 122, 0, 74, 0, 44, 0, 13, 0, 2 };
-    // const p =               .{ 1, 0, 20, 0, 8, 0, 14, 0, 0, 3, 0, 0, 0, 3, 0, 22, 0, 33, 0, 11, 0, 3, 0, 17, 0, 5, 0, 33, 0, 11, 0, 0, 0, 13, 0, 2 };
 
+    // "How are you doing"
+    const input_ids = &[_]i64{ 1, 0, 20, 0, 121, 0, 14, 0, 100, 0, 3, 0, 51, 0, 122, 0, 88, 0, 3, 0, 22, 0, 33, 0, 122, 0, 3, 0, 17, 0, 120, 0, 33, 0, 122, 0, 74, 0, 44, 0, 13, 0, 2 };
     const phonemes = "hˌaʊ ɑːɹ juː dˈuːɪŋ?";
 
     const output = try phonemes_to_ids(allocator, phonemes, .{});
     defer allocator.free(output);
 
     try std.testing.expect(output.len == input_ids.len);
-
-    const _a = config.PhonemesMap.get("a");
-    std.debug.print("pmap {?}\n", .{_a});
 
     std.debug.print("\n\n+----mine-+-piper----+\n", .{});
     for (output, 0..) |value, i| {
@@ -302,27 +288,3 @@ test "test phonemes to ids" {
         try std.testing.expectEqual(expected, value);
     }
 }
-
-// test "get phoneme ID" {
-//     const u = try std.unicode.utf8Decode("\u{030a}");
-//     const _id = GetPhonemeId(u);
-//     try std.testing.expectEqual(158, _id);
-//
-//     const allocator = std.testing.allocator;
-//     const input = "hello world!";
-//
-//     const output = try phoneme.Phonemize(allocator, input, .{});
-//     defer allocator.free(output);
-//
-//     const file = try std.fs.cwd().createFile("output.txt", .{});
-//     defer file.close();
-//     const writer = file.writer().any();
-//
-//     for (output) |value| {
-//         for (value) |codepoint| {
-//             const id = GetPhonemeId(codepoint);
-//             try std.fmt.format(writer, "{c} {d}\n", .{ codepoint, id });
-//             std.debug.print("{d}\n", .{id});
-//         }
-//     }
-// }

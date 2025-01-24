@@ -190,8 +190,8 @@ pub fn load_model(
         // speaker_tensor,
     });
 
+    // time inference
     const start = try std.time.Instant.now();
-    // try onnx_instance.run();
 
     var output_tensor: ?*onnx.c_api.OrtValue = null;
 

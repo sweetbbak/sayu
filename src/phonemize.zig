@@ -1,5 +1,4 @@
 const std = @import("std");
-const id = @import("phoneme_id.zig");
 const strings = @import("strings.zig");
 
 const map = std.AutoHashMap;
@@ -182,10 +181,6 @@ pub fn Phonemize(allocator: Allocator, input: [:0]const u8, cfg: Config) ![][]co
             },
             else => {
                 if ((terminator & CLAUSE_TYPE_SENTENCE) == CLAUSE_TYPE_SENTENCE) {
-                    // End of sentence
-                    // sentencePhonemes = nullptr;
-                    // try list.append("$");
-
                     const sentence = try sb.toOwnedSlice(allocator);
                     std.debug.print("{s}\n", .{sentence});
                     try list.append(sentence);
@@ -195,12 +190,6 @@ pub fn Phonemize(allocator: Allocator, input: [:0]const u8, cfg: Config) ![][]co
     }
 
     return list.toOwnedSlice();
-    // const x = try list.toOwnedSlice();
-    // const y = try ids.toOwnedSlice();
-    // const result: Result = .{ .phonemes = x, .ids = y };
-    // return result;
-    // return try ids.toOwnedSlice();
-    // return try list.toOwnedSlice();
 }
 
 const _voice: [*:0]const u8 = "en-us";
@@ -243,8 +232,6 @@ pub fn Phonemize2(allocator: Allocator, input: [:0]const u8, cfg: Config) ![][]c
 
         std.debug.print("c string: {s}\n", .{span(cstr)});
 
-        // const owned_str = try allocator.dupeZ(u8, span(cstr));
-        // try list.append(owned_str);
         sb.append(span(cstr));
 
         const punctuation = terminator & 0x000FFFFF;
