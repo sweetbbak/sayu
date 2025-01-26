@@ -46,12 +46,15 @@ inline fn check_arg(args: [][:0]u8, index: usize) void {
 }
 
 const help_msg = \\
-\\ usage: sayu [opts]
-\\   -h, --help           print this message
-\\   -s, --stdout         write binary audio to stdout (16-bit 22050hz little endian)
-\\   -o, --output <file>  write to the given wav file
-\\   -i, --input  <file>  get input text from the given file
-\\   -r, --rate   <float> speech rate (0-1)
+\\usage: sayu [opts]
+\\  -h, --help           print this message
+\\  -s, --stdout         write binary audio to stdout (16-bit 22050hz little endian)
+\\  -o, --output <file>  write to the given wav file
+\\  -i, --input  <file>  get input text from the given file
+\\  -r, --rate   <float> speech rate (0-1)
+\\
+\\examples:
+\\  sayu --rate 0.5 --stdout --input ~/00001.txt | aplay -r 22050 -c 1 -f S16_LE -t raw
 ;
 
 fn print_help() void {
