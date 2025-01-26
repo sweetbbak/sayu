@@ -1,5 +1,13 @@
 const std = @import("std");
 const id = @import("phoneme_id.zig");
+const phoneme = @import("phonemize.zig");
+const synth = @import("synth.zig");
+const pid = @import("phoneme_id.zig");
+const wav = @import("wav");
+
+const Allocator = std.mem.Allocator;
+const logFn = @import("logger/log.zig").myLogFn;
+const log = std.log;
 
 pub const SpeakerId = u64;
 pub const PhonemeId = i64;
@@ -29,7 +37,6 @@ pub const Voice = struct {
     phonemizeConfig: PhonemizeConfig,
     synthesisConfig: SynthesisConfig,
     modelConfig: ModelConfig,
-    session: ModelSession,
 };
 
 pub const eSpeakConfig = struct {
@@ -59,21 +66,8 @@ pub const SynthesisConfig = struct {
 
 pub const ModelConfig = struct {
     numSpeakers: u8,
-
     // speaker name -> id
     // std::optional<std::map<std::string, SpeakerId>> speakerIdMap;
-};
-
-pub const ModelSession = struct {
-    // session: onnx.c_api.OrtSession,
-    // env: onnx.c_api.OrtEnv,
-    // allocator: onnx.c_api.struct_OrtApi.GetAllocatorWithDefaultOptions(),
-    // options: onnx.OnnxInstanceOpts,
-    //   Ort::AllocatorWithDefaultOptions allocator;
-    //   Ort::SessionOptions options;
-    //   Ort::Env env;
-    //
-    //   ModelSession() : onnx(nullptr){};
 };
 
 pub const SynthesisResult = struct {
@@ -81,3 +75,122 @@ pub const SynthesisResult = struct {
     audioSeconds: f64,
     realTimeFactor: f64,
 };
+
+/// read every line from stdin into a list
+pub fn read_stdin_pids(allocator: std.mem.Allocator) ![]i64 {
+    const reader = std.io.getStdIn().reader();
+    var bufio = std.io.bufferedReader(reader);
+    const stdin = bufio.reader();
+    var buf: [10]u8 = undefined;
+
+    var list = std.ArrayList(i64).init(allocator);
+    defer list.deinit();
+
+    while (try stdin.readUntilDelimiterOrEof(buf[0..], '\n')) |line| {
+        const int = try std.fmt.parseInt(i64, line, 10);
+        try list.append(int);
+    }
+
+    return list.toOwnedSlice();
+}
+
+/// read phoneme IDs from stdin and play them
+pub fn phonemes_from_stdin() !void {
+    var gpa = std.heap.GeneralPurposeAllocator(.{}){};
+    const allocator = gpa.allocator();
+    defer _ = gpa.deinit();
+
+    const output = try read_stdin_pids(allocator);
+    _ = output;
+}
+
+pub const Output = struct {
+    write_stdout: bool = false,
+    output: []const u8 = "output.wav",
+};
+
+pub fn synth_text(
+    allocator: Allocator,
+    model_path: [:0]const u8,
+    text: [:0]const u8,
+    config: synth.Config,
+    write_to: Output,
+) !void {
+    const onnx_instance = try synth.load(allocator, model_path);
+
+    var output = try phoneme.Phonemize(allocator, text, .{ .voice = "en", .mode = .IPA_MODE });
+    defer output.deinit();
+
+    const lines = try output.toSlice();
+
+    // var file: std.fs.File = undefined;
+    const sample_rate: usize = 22050;
+    const num_channels: usize = 1;
+    // var encoder = undefined;
+    var file = try std.fs.cwd().createFile(write_to.output, .{});
+    var encoder = try wav.encoder(i16, file.writer(), file.seekableStream(), sample_rate, num_channels);
+
+    if (!write_to.write_stdout) {
+    }
+
+    for (lines) |value| {
+        const phoneme_ids = try pid.phonemes_to_ids(allocator, value, .{});
+        defer allocator.free(phoneme_ids);
+
+        const audio = try synth.infer(allocator, onnx_instance, phoneme_ids, config);
+        defer allocator.free(audio);
+
+        if (write_to.write_stdout) {
+            try write_audio_stdout(audio);
+        } else {
+            // Write out samples as 16-bit PCM int.
+            try encoder.write(i16, audio);
+        }
+    }
+
+    if (!write_to.write_stdout) {
+        try encoder.finalize();
+        file.close();
+    }
+}
+
+pub fn synth_file(
+    allocator: Allocator,
+    model_pathh: [:0]const u8,
+    file_path: []const u8,
+    config: synth.Config,
+) !void {
+    const onnx_instance = try synth.load(allocator, model_pathh);
+
+    const file = try std.fs.cwd().openFile(file_path);
+    var buf: [1024 * 2]u8 = undefined;
+
+    while (try file.readAll(&buf) > 0) |n| {
+        const text = buf[0..n];
+
+        var output = try phoneme.Phonemize(allocator, text, .{ .voice = "en", .mode = .IPA_MODE });
+        defer output.deinit();
+
+        const lines = try output.toSlice();
+
+        for (lines) |value| {
+            const phoneme_ids = try pid.phonemes_to_ids(allocator, value, .{});
+            defer allocator.free(phoneme_ids);
+
+            const audio = try synth.infer(allocator, onnx_instance, phoneme_ids, config);
+            defer allocator.free(audio);
+        }
+    }
+}
+
+pub fn write_audio_stdout(audio: []i16) !void {
+    const stdout_file = std.io.getStdOut().writer();
+    var bw = std.io.bufferedWriter(stdout_file);
+    const stdout = bw.writer();
+
+    for (audio) |value| {
+        try stdout.writeInt(i16, value, .little);
+    }
+
+    try bw.flush();
+}

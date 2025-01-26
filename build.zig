@@ -56,10 +56,12 @@ pub fn build(b: *std.Build) void {
 
     exe.root_module.addImport("onnxruntime", onnx_dep.module("zig-onnxruntime"));
 
+    const wav_mod = b.dependency("zig-soundio", .{ .target = target, .optimize = optimize }).module("wav");
+    exe.root_module.addImport("wav", wav_mod);
+
     exe.linkLibrary(espeak.artifact("espeak-ng"));
     const espeak_include = espeak.path("include");
     exe.addIncludePath(espeak_include);
-
 
     exe.linkLibC();
     b.installArtifact(exe);

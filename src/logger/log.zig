@@ -51,6 +51,7 @@ pub fn myLogFn(
     //     .debug => Ansi.green ++ "[DEBUG]" ++ Ansi.reset,
     //     .err => Ansi.red ++ "[ERROR]" ++ Ansi.reset,
     // };
+
     const level_txt = comptime switch (message_level) {
         .warn => Ansi.yellow ++ "WARN" ++ Ansi.reset,
         .info => Ansi.blue ++ "INFO" ++ Ansi.reset,

@@ -1,18 +1,12 @@
 const std = @import("std");
 const strings = @import("strings.zig");
 
-const map = std.AutoHashMap;
 const Allocator = std.mem.Allocator;
 const span = std.mem.span;
-const uni = std.unicode;
 
 const c = @cImport({
     @cInclude("speak_lib.h");
 });
-
-const ASCII_MODE = @as(c_int, 0x0);
-const PHONETIC_MODE = @as(c_int, 0x1);
-const IPA_MODE = @as(c_int, 0x2);
 
 pub const SpeakerId = u64;
 pub const PhonemeId = i64;
@@ -41,13 +35,13 @@ const CLAUSE_SEMICOLON = (30 | CLAUSE_INTONATION_COMMA | CLAUSE_TYPE_CLAUSE);
 
 pub const PhonemeConfig = struct {
     voice: []const u8 = "en-us",
-    period: u8 = '.',
-    comma: u8 = ',',
-    question: u8 = '?',
-    exclamation: u8 = '!',
-    colon: u8 = ':',
-    semicolon: u8 = ';',
-    space: u8 = ' ',
+    period: []const u8 = ".",
+    comma: []const u8 = ",",
+    question: []const u8 = "?",
+    exclamation: []const u8 = "!",
+    colon: []const u8 = ":",
+    semicolon: []const u8 = ";",
+    space: []const u8 = " ",
 };
 
 pub const TextCasing = enum(c_int) {
@@ -64,14 +58,39 @@ pub const Config = struct {
     mode: PhoneticMode = .IPA_MODE,
     data_path: [:0]const u8 = "/usr/share/espeak-ng-data",
     voice: [:0]const u8 = "en",
+    phoneme_config: PhonemeConfig = .{},
 };
 
 pub const Result = struct {
-    phonemes: [][]const u8,
-    ids: []i64,
+    allocator: Allocator,
+    list: std.ArrayList([]const u8),
+    sb: strings.StringBuilder,
+
+    const Self = @This();
+
+    pub fn init(allocator: Allocator, buf: []u8) Self {
+        return Self{
+            .allocator = allocator,
+            .list = std.ArrayList([]const u8).init(allocator),
+            .sb = strings.StringBuilder.init(buf),
+        };
+    }
+
+    pub fn toSlice(self: *Self) ![][]const u8 {
+        return self.list.items;
+    }
+
+    pub fn deinit(self: *Self) void {
+        for (self.list.items) |value| {
+            self.allocator.free(value);
+        }
+
+        self.list.deinit();
+    }
 };
 
-pub fn Phonemize(allocator: Allocator, input: [:0]const u8, cfg: Config) ![][]const u8 {
+// pub fn Phonemize(allocator: Allocator, input: [:0]const u8, cfg: Config) ![][]const u8 {
+pub fn Phonemize(allocator: Allocator, input: [:0]const u8, cfg: Config) !Result {
     const buflen = 500;
     const options = 0;
 
@@ -94,11 +113,17 @@ pub fn Phonemize(allocator: Allocator, input: [:0]const u8, cfg: Config) ![][]co
     var terminator: c_int = 0x00;
     var str: ?*const anyopaque = @ptrCast(input);
 
-    var list = std.ArrayList([]const u8).init(allocator);
-    defer list.deinit();
+    // var list = std.ArrayList([]const u8).init(allocator);
+    // defer list.deinit();
 
     var buf: [1024 * 2]u8 = undefined;
-    var sb = strings.StringBuilder.init(&buf);
+    // var sb = strings.StringBuilder.init(&buf);
+
+    var result: Result = Result.init(allocator, &buf);
+    // _ = &result;
+
+    // var list = result.list;
+    // var sb = result.sb;
 
     while (str != null) {
         const cstr = c.espeak_TextToPhonemesWithTerminator(
@@ -108,37 +133,43 @@ pub fn Phonemize(allocator: Allocator, input: [:0]const u8, cfg: Config) ![][]co
             @ptrCast(&terminator),
         );
 
-        sb.append(span(cstr));
+        result.sb.append(span(cstr));
 
         const punctuation = terminator & 0x000FFFFF;
         switch (punctuation) {
             CLAUSE_PERIOD => {
-                sb.append(".");
+                result.sb.append(cfg.phoneme_config.period);
             },
             CLAUSE_QUESTION => {
-                sb.append("?");
+                result.sb.append(cfg.phoneme_config.question);
             },
             CLAUSE_EXCLAMATION => {
-                sb.append("!");
+                result.sb.append(cfg.phoneme_config.exclamation);
             },
             CLAUSE_COMMA => {
-                sb.append(",");
+                result.sb.append(cfg.phoneme_config.comma);
+                result.sb.append(cfg.phoneme_config.space);
             },
             CLAUSE_COLON => {
-                sb.append(":");
+                result.sb.append(cfg.phoneme_config.colon);
+                result.sb.append(cfg.phoneme_config.space);
             },
             CLAUSE_SEMICOLON => {
-                sb.append(";");
+                result.sb.append(cfg.phoneme_config.semicolon);
+                result.sb.append(cfg.phoneme_config.space);
             },
             else => {},
         }
 
         if ((terminator & CLAUSE_TYPE_SENTENCE) == CLAUSE_TYPE_SENTENCE) {
-            const sentence = try sb.toOwnedSlice(allocator);
-            try list.append(sentence);
-            sb.reset();
+            const sentence = try result.sb.toOwnedSlice(allocator);
+            std.debug.print("full sentence: '{s}'\n", .{sentence});
+            try result.list.append(sentence);
+            result.sb.reset();
+            @memset(result.sb.buffer, 0);
         }
     }
 
-    return try list.toOwnedSlice();
+    // return try list.toOwnedSlice();
+    return result;
 }
