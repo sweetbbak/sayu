@@ -124,7 +124,7 @@ pub fn infer(
     }
 
     const audio_count: usize = @intCast(try onnx.getTensorShapeCount(allocator, onnx_instance.ort_api, output_tensor));
-    log.debug("audio count outer: {d}\n", .{audio_count});
+    log.debug("audio count outer: {d}", .{audio_count});
 
     // const end = try std.time.Instant.now();
     const end = time.DateTime.now();
@@ -138,8 +138,8 @@ pub fn infer(
     }
 
     // std.fmt.format
-    log.info("real-time factor {d:.1}\n", .{real_time});
-    log.info("synthesized {d:.1} seconds(s) of audio in {d} milliseconds\n", .{ audio_seconds, timed });
+    log.info("real-time factor {d:.1}", .{real_time});
+    log.info("synthesized {d:.1} seconds(s) of audio in {d} milliseconds", .{ audio_seconds, timed });
 
     // GetTensorMutableData takes a pointer as an argument and changes it
     // to point at an internal buffer with the output data, we then cast
@@ -165,7 +165,7 @@ pub fn infer(
         }
     }
 
-    log.debug("max audio value: {d:.1}\n", .{max_audio_value});
+    log.debug("max audio value: {d:.1}", .{max_audio_value});
 
     // cast the output data to signed 16-bit Little Endian audio
     var audio: []i16 = try allocator.alloc(i16, audio_count);
@@ -298,7 +298,7 @@ pub fn load_model(
     }
 
     const audio_count: usize = @intCast(try onnx.getTensorShapeCount(allocator, onnx_instance.ort_api, output_tensor));
-    log.debug("audio count outer: {d}\n", .{audio_count});
+    log.debug("audio count outer: {d}", .{audio_count});
 
     // const end = try std.time.Instant.now();
     const end = time.DateTime.now();
@@ -312,8 +312,8 @@ pub fn load_model(
     }
 
     // std.fmt.format
-    log.info("real-time factor {d:.1}\n", .{real_time});
-    log.info("synthesized {d:.1} seconds(s) of audio in {d} milliseconds\n", .{ audio_seconds, timed });
+    log.info("real-time factor {d:.1}", .{real_time});
+    log.info("synthesized {d:.1} seconds(s) of audio in {d} milliseconds", .{ audio_seconds, timed });
 
     // GetTensorMutableData takes a pointer as an argument and changes it
     // to point at an internal buffer with the output data, we then cast
@@ -339,7 +339,7 @@ pub fn load_model(
         }
     }
 
-    log.debug("max audio value: {d:.1}\n", .{max_audio_value});
+    log.debug("max audio value: {d:.1}", .{max_audio_value});
 
     // cast the output data to signed 16-bit Little Endian audio
     var audio: []i16 = try allocator.alloc(i16, audio_count);

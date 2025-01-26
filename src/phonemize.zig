@@ -163,13 +163,11 @@ pub fn Phonemize(allocator: Allocator, input: [:0]const u8, cfg: Config) !Result
 
         if ((terminator & CLAUSE_TYPE_SENTENCE) == CLAUSE_TYPE_SENTENCE) {
             const sentence = try result.sb.toOwnedSlice(allocator);
-            std.debug.print("full sentence: '{s}'\n", .{sentence});
             try result.list.append(sentence);
             result.sb.reset();
             @memset(result.sb.buffer, 0);
         }
     }
 
-    // return try list.toOwnedSlice();
     return result;
 }

@@ -190,7 +190,6 @@ pub const String = struct {
 
         self.buffer = try self.allocator.realloc(self.buffer, new_size);
         log.debug("realloc: size {d} - loc {*}", .{ new_size, self.buffer.ptr });
-        std.debug.print("realloc: size {d} - loc {*}\n", .{ new_size, self.buffer.ptr });
     }
 
     pub fn appendBufPrint(self: *Self, comptime fmt: []const u8, args: anytype) void {

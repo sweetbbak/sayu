@@ -23,17 +23,21 @@
     // Once all dependencies are fetched, `zig build` no longer requires
     // internet connectivity.
     .dependencies = .{
-        .@"onnxruntime.zig" = .{
-            // .url = "https://github.com/recursiveGecko/onnxruntime.zig/archive/refs/heads/master.zip",
-            // .hash = "12201ba0d4e260c46b067389b77bc9d3a0dcc0cd6e626151914f55d7878a8abf19df",
-            .path = "./onnxruntime.zig",
-        },
+        // .@"onnxruntime.zig" = .{
+        // .url = "https://github.com/recursiveGecko/onnxruntime.zig/archive/refs/heads/master.zip",
+        // .hash = "12201ba0d4e260c46b067389b77bc9d3a0dcc0cd6e626151914f55d7878a8abf19df",
+        // .path = "https://github.com/sweetbbak/onnxruntime.zig/archive/refs/heads/master.zip",
+        // },
         .espeak = .{
             .path = "./espeak-ng-zig",
         },
         .@"zig-soundio" = .{
             .url = "https://github.com/TemariVirus/zig-wav/archive/refs/heads/main.zip",
             .hash = "12201dfd1d1440ad55e57efc3926163f1bb4ccaaf7194b84c83cd0269b923d57d3d3",
+        },
+        .@"onnxruntime.zig" = .{
+            .url = "https://github.com/sweetbbak/onnxruntime.zig/archive/refs/heads/master.zip",
+            .hash = "12208d0e9907459037140c1cc832cc7aa2513ba57ea4155919b7a384c77cd2e14226",
         },
     },
     .paths = .{
