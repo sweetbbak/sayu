@@ -30,6 +30,7 @@ pub const Options = struct {
     output: ?[]const u8 = null,
     stdin: bool = false,
     input_file: ?[]const u8 = null,
+    model: ?[:0]const u8 = null,
     speech_rate: ?f32 = null,
     args: ?[]const u8 = null,
 };
@@ -83,6 +84,10 @@ fn parse_flags(args: [][:0]u8) !Options {
             check_arg(args, i);
             opts.input_file = args[i + 1];
         }
+        if (mem.eql(u8, "--model", arg) or mem.eql(u8, "-m", arg)) {
+            check_arg(args, i);
+            opts.model = args[i + 1];
+        }
         if (mem.eql(u8, "--rate", arg) or mem.eql(u8, "-r", arg)) {
             check_arg(args, i);
             opts.speech_rate = try std.fmt.parseFloat(f32, args[i + 1]);
@@ -115,6 +120,7 @@ pub fn main() !void {
 
     if (opts.input_file) |fname| {
         const file = try std.fs.cwd().openFile(fname, .{});
+        defer file.close();
         text = try file.readToEndAlloc(allocator, 1024 * 10);
     }
 
@@ -142,23 +148,14 @@ pub fn main() !void {
         cfg.lengthScale = rate;
     }
 
-    // log.debug("phonemizing: {s}\n", .{text});
-    try piper.synth_text(allocator, model_path, @ptrCast(text), cfg, out);
-    std.process.exit(0);
+    var model: [:0]const u8 = "";
+    if (opts.model) |mod| {
+        model = mod;
+    } else {
+        print_help();
+    }
 
-    // var output = try phoneme.Phonemize(allocator, args[1], .{ .voice = "en", .mode = .IPA_MODE });
-    // defer output.deinit();
-    //
-    // const lines = try output.toSlice();
-    //
-    // for (lines) |value| {
-    //     const _ids = try pid.phonemes_to_ids(allocator, value, .{});
-    //     defer allocator.free(_ids);
-    //
-    //     try synth.load_model(allocator, model_path, _ids, .{
-    //         .lengthScale = 0.67,
-    //         .noiseW = 0.6,
-    //         .sentenceSilenceSeconds = 0.1,
-    //     });
-    // }
+    log.info("initializing...", .{});
+    try piper.synth_text(allocator, model, @ptrCast(text), cfg, out);
+    std.process.exit(0);
 }

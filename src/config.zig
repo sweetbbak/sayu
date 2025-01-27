@@ -53,6 +53,21 @@ pub fn parse_config(allocator: Allocator, contents: []const u8) !Result {
     return .{ .json = parsed, .config = parsed.value };
 }
 
+/// looks for a file like: model.onnx -> model.onnx.json and parses it
+pub fn parse_config_file(allocator: Allocator, model_path: []const u8) !Result {
+    const new_path = try std.fmt.allocPrint(allocator, "{s}.json", .{model_path});
+    defer allocator.free(new_path);
+
+    const file = try std.fs.cwd().openFile(new_path, .{});
+    defer file.close();
+
+    std.log.info("opening config: {s}", .{new_path});
+
+    const contents = try file.readToEndAlloc(allocator, 1024 * 10);
+    // defer allocator.free(contents);
+    return parse_config(allocator, contents);
+}
+
 test "piper config" {
     const allocator = std.testing.allocator;
     const contents = piper_json;

@@ -1,5 +1,6 @@
 const std = @import("std");
 const id = @import("phoneme_id.zig");
+const cfg = @import("config.zig");
 const phoneme = @import("phonemize.zig");
 const synth = @import("synth.zig");
 const pid = @import("phoneme_id.zig");
@@ -118,6 +119,9 @@ pub fn synth_text(
 ) !void {
     const onnx_instance = try synth.load(allocator, model_path);
 
+    var res = try cfg.parse_config_file(allocator, model_path);
+    defer res.deinit();
+
     var output = try phoneme.Phonemize(allocator, text, .{ .voice = "en", .mode = .IPA_MODE });
     defer output.deinit();
 
@@ -134,7 +138,7 @@ pub fn synth_text(
     }
 
     for (lines) |value| {
-        const phoneme_ids = try pid.phonemes_to_ids(allocator, value, .{});
+        const phoneme_ids = try pid.phonemes_to_ids(allocator, value, .{}, res);
         defer allocator.free(phoneme_ids);
 
         const audio = try synth.infer(allocator, onnx_instance, phoneme_ids, config);

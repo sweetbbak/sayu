@@ -192,17 +192,22 @@ pub inline fn GetPhonemeId(codepoint: u32) !PhonemeId {
     }
 }
 
-pub fn phonemes_to_ids(allocator: Allocator, line: []const u8, cfg: PhonemeIdConfig) ![]PhonemeId {
+pub fn phonemes_to_ids(
+    allocator: Allocator,
+    line: []const u8,
+    cfg: PhonemeIdConfig,
+    piper_cfg: config.Result,
+) ![]PhonemeId {
     var list = std.ArrayList(PhonemeId).init(allocator);
     defer list.deinit();
 
     var uni = try std.unicode.Utf8View.init(line);
     var iterator = uni.iterator();
 
-    var result = try config.parse_config(allocator, config.piper_json);
-    defer result.deinit();
-
-    const map = result.config.phoneme_id_map.map;
+    // var result = try config.parse_config(allocator, config.piper_json);
+    // defer result.deinit();
+    // const map = result.config.phoneme_id_map.map;
+    const map = piper_cfg.config.phoneme_id_map.map;
 
     if (cfg.addBos) {
         try list.append(cfg.idBos);
@@ -219,6 +224,8 @@ pub fn phonemes_to_ids(allocator: Allocator, line: []const u8, cfg: PhonemeIdCon
             for (_ids) |id| {
                 try list.append(id);
             }
+        } else {
+            std.log.warn("unable to map phoneme: '{c}'", .{codepoint});
         }
     }
 
