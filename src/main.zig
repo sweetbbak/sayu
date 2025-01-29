@@ -4,6 +4,7 @@ const piper = @import("piper.zig");
 const phoneme = @import("phonemize.zig");
 const synth = @import("synth.zig");
 const pid = @import("phoneme_id.zig");
+const serve = @import("serve.zig");
 const Allocator = std.mem.Allocator;
 const logFn = @import("logger/log.zig").myLogFn;
 const log = std.log;
@@ -21,9 +22,6 @@ pub fn opaqPtrTo(ptr: ?*anyopaque, comptime T: type) T {
 
 const model_path: [:0]const u8 = "/home/sweet/ssd/pipertts/ivona_tts/amy.onnx";
 // const model_path: [:0]const u8 = "./kokoro-v0_19.onnx";
-
-// "How are you doing?" phoneme IDs
-const hey_phoneme_ids: []const i64 = &.{ 1, 0, 20, 0, 121, 0, 14, 0, 100, 0, 3, 0, 51, 0, 122, 0, 88, 0, 3, 0, 22, 0, 33, 0, 122, 0, 3, 0, 17, 0, 120, 0, 33, 0, 122, 0, 74, 0, 44, 0, 13, 0, 2 };
 
 pub const Options = struct {
     stdout: bool = false,
@@ -46,16 +44,17 @@ inline fn check_arg(args: [][:0]u8, index: usize) void {
     }
 }
 
-const help_msg = \\
-\\usage: sayu [opts]
-\\  -h, --help           print this message
-\\  -s, --stdout         write binary audio to stdout (16-bit 22050hz little endian)
-\\  -o, --output <file>  write to the given wav file
-\\  -i, --input  <file>  get input text from the given file
-\\  -r, --rate   <float> speech rate (0-1)
-\\
-\\examples:
-\\  sayu --rate 0.5 --stdout --input ~/00001.txt | aplay -r 22050 -c 1 -f S16_LE -t raw
+const help_msg = 
+    \\
+    \\usage: sayu [opts]
+    \\  -h, --help           print this message
+    \\  -s, --stdout         write binary audio to stdout (16-bit 22050hz little endian)
+    \\  -o, --output <file>  write to the given wav file
+    \\  -i, --input  <file>  get input text from the given file
+    \\  -r, --rate   <float> speech rate (0-1)
+    \\
+    \\examples:
+    \\  sayu --rate 0.5 --stdout --input ~/00001.txt | aplay -r 22050 -c 1 -f S16_LE -t raw
 ;
 
 fn print_help() void {
@@ -110,6 +109,15 @@ pub fn main() !void {
 
     const args = try std.process.argsAlloc(allocator);
     defer std.process.argsFree(allocator, args);
+
+    for (args) |value| {
+        if (mem.eql(u8, value, "serve")) {
+            // tts server
+            // titties server
+            try serve.serve_main("127.0.0.1", 8080);
+            std.process.exit(0);
+        }
+    }
 
     const opts = try parse_flags(args);
 

@@ -187,6 +187,34 @@ pub fn synth_file(
     }
 }
 
+pub fn synth_writer(
+    allocator: Allocator,
+    model_path: [:0]const u8,
+    text: [:0]const u8,
+    writer: anytype,
+    config: synth.Config,
+) !void {
+    const onnx_instance = try synth.load(allocator, model_path);
+
+    var res = try cfg.parse_config_file(allocator, model_path);
+    defer res.deinit();
+
+    var output = try phoneme.Phonemize(allocator, text, .{ .voice = "en", .mode = .IPA_MODE });
+    defer output.deinit();
+
+    const lines = try output.toSlice();
+
+    for (lines) |value| {
+        const phoneme_ids = try pid.phonemes_to_ids(allocator, value, .{}, res);
+        defer allocator.free(phoneme_ids);
+
+        const audio = try synth.infer(allocator, onnx_instance, phoneme_ids, config);
+        defer allocator.free(audio);
+
+        try write_audio_writer(audio, writer);
+    }
+}
+
 pub fn write_audio_stdout(audio: []i16) !void {
     const stdout_file = std.io.getStdOut().writer();
     var bw = std.io.bufferedWriter(stdout_file);
@@ -197,4 +225,10 @@ pub fn write_audio_stdout(audio: []i16) !void {
     }
 
     try bw.flush();
+}
+
+pub fn write_audio_writer(audio: []i16, writer: anytype) !void {
+    for (audio) |value| {
+        try writer.writeInt(i16, value, .little);
+    }
 }

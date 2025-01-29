@@ -2,9 +2,10 @@ const std = @import("std");
 
 pub fn build(b: *std.Build) void {
     const target = b.standardTargetOptions(.{
+        // .default_target = .{ .abi = .musl },
+        // .default_target = .{ .abi = .gnu },
     });
-    const optimize = b.standardOptimizeOption(.{
-    });
+    const optimize = b.standardOptimizeOption(.{});
 
     const onnx_dep = b.dependency("onnxruntime.zig", .{
         .target = target,
@@ -26,7 +27,6 @@ pub fn build(b: *std.Build) void {
     });
 
     exe.root_module.addImport("onnxruntime", onnx_dep.module("zig-onnxruntime"));
-
     const wav_mod = b.dependency("zig-soundio", .{ .target = target, .optimize = optimize }).module("wav");
     exe.root_module.addImport("wav", wav_mod);
 
@@ -34,9 +34,46 @@ pub fn build(b: *std.Build) void {
     const espeak_include = espeak.path("include");
     exe.addIncludePath(espeak_include);
 
-    exe.linkLibC();
+    // look for libonnxruntime wherever the binary is
+    exe.root_module.addRPathSpecial("$ORIGIN");
+    exe.root_module.addRPathSpecial("$ORIGIN/lib");
 
+    // const install_onnx_lib = b.addRunArtifact(onnx_dep.artifact("lib/libonnxruntime.so.1.17.1"));
+    // const install_onnx_lib = b.addRunArtifact(onnx_dep.artifact("libonnxruntime.so"));
+    // b.getInstallStep().dependOn(&install_onnx_lib.step);
+
+    // const install_onnx = b.addInstallLibFile(
+    //     onnx_dep.path("lib/libonnxruntime.so.1.17.1"),
+    //     "libonnxruntime.so",
+    // );
+    // b.getInstallStep().dependOn(&install_onnx.step);
+
+    exe.linkLibC();
     b.installArtifact(exe);
+
+    const lib_mod = b.createModule(.{
+        // `root_source_file` is the Zig "entry point" of the module. If a module
+        // only contains e.g. external object files, you can make this `null`.
+        // In this case the main source file is merely a path, however, in more
+        // complicated build scripts, this could be a generated file.
+        .root_source_file = b.path("src/root.zig"),
+        .target = target,
+        .optimize = optimize,
+    });
+
+
+    const lib = b.addStaticLibrary(.{
+        .name = "sayu",
+        .root_module = lib_mod,
+    });
+
+    lib.root_module.addImport("onnxruntime", onnx_dep.module("zig-onnxruntime"));
+    lib.root_module.addImport("wav", wav_mod);
+    lib.linkLibrary(espeak.artifact("espeak-ng"));
+    lib.addIncludePath(espeak_include);
+    lib.linkLibC();
+
+    b.installArtifact(lib);
 
     const run_cmd = b.addRunArtifact(exe);
     run_cmd.step.dependOn(b.getInstallStep());

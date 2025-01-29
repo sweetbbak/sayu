@@ -1,7 +1,9 @@
 const std = @import("std");
 
 pub fn build(b: *std.Build) void {
-    const target = b.standardTargetOptions(.{});
+    const target = b.standardTargetOptions(.{
+        .default_target = .{ .abi = .musl }
+    });
     const optimize = b.standardOptimizeOption(.{});
 
     const strip = b.option(bool, "strip", "Omit debug information");
@@ -18,6 +20,14 @@ pub fn build(b: *std.Build) void {
         .strip = strip,
         .pic = pic,
     });
+
+    // const lib = b.addSharedLibrary(.{
+    //     .name = "espeak-ng",
+    //     .target = target,
+    //     .optimize = optimize,
+    //     .strip = strip,
+    //     .pic = pic,
+    // });
 
     const espeak = b.dependency("espeak-ng", .{
         .target = target,
@@ -110,7 +120,7 @@ pub fn build(b: *std.Build) void {
     defer flags.deinit();
 
     flags.append("-DUSE_ASYNC=0") catch unreachable;
-    flags.append("-DBUILD_SHARED_LIBS=1") catch unreachable;
+    // flags.append("-DBUILD_SHARED_LIBS=1") catch unreachable;
     flags.append("-DUSE_MBROLA=0") catch unreachable;
     flags.append("-DUSE_LIBSONIC=0") catch unreachable;
     flags.append("-DUSE_LIBPCAUDIO=0") catch unreachable;
@@ -123,16 +133,25 @@ pub fn build(b: *std.Build) void {
     // TODO: find out why (maybe its the strncpy0 fn)
     flags.append("-fno-sanitize=undefined") catch unreachable;
 
+    // testing
+    flags.append("-DBUILD_SHARED_LIBS=0") catch unreachable;
+    flags.append("-DENABLE_TESTS=OFF") catch unreachable;
+    flags.append("-DCOMPILE_INTONATIONS=OFF") catch unreachable;
+    flags.append("-DCMAKE_BUILD_TYPE=Release") catch unreachable;
+    flags.append("-DCMAKE_C_FLAGS=-pthread -DCMAKE_EXE_LINKER_FLAGS=-pthread") catch unreachable;
+
     lib.addCSourceFiles(.{
         .root = espeak.path(""),
-        .files = &c_files,
+        .files = &c_files ++ &no_install_headers2,
         .flags = flags.items,
     });
 
     lib.addIncludePath(espeak.path("include"));
     lib.addIncludePath(espeak.path("src/libespeak-ng"));
+    lib.addIncludePath(espeak.path("src/libespeak-ng/include"));
+    lib.addIncludePath(espeak.path("src/include"));
     lib.addIncludePath(espeak.path("src/ucd-tools/src/include"));
-    lib.addIncludePath(espeak.path("src/speechPlayer/src"));
+    // lib.addIncludePath(espeak.path("src/speechPlayer/src"));
 
     // lib.linkSystemLibrary("pthread");
     lib.linkLibC();
@@ -215,6 +234,40 @@ const include_headers = [_][]const u8{
     "src/include/espeak-ng/encoding.h",
     "src/include/espeak-ng/espeak_ng.h",
     "src/include/espeak-ng/speak_lib",
+};
+
+const no_install_headers2 = [_][]const u8{
+    "src/libespeak-ng/common.h",
+    "src/libespeak-ng/compiledict.h",
+    "src/libespeak-ng/dictionary.h",
+    "src/libespeak-ng/error.h",
+    "src/libespeak-ng/espeak_command.h",
+    "src/libespeak-ng/event.h",
+    "src/libespeak-ng/fifo.h",
+    "src/libespeak-ng/ieee80.h",
+    "src/libespeak-ng/intonation.h",
+    "src/libespeak-ng/klatt.h",
+    "src/libespeak-ng/langopts.h",
+    "src/libespeak-ng/mbrola.h",
+    "src/libespeak-ng/mbrowrap.h",
+    "src/libespeak-ng/mnemonics.h",
+    "src/libespeak-ng/numbers.h",
+    "src/libespeak-ng/phoneme.h",
+    "src/libespeak-ng/phonemelist.h",
+    "src/libespeak-ng/readclause.h",
+    "src/libespeak-ng/setlengths.h",
+    "src/libespeak-ng/sintab.h",
+    "src/libespeak-ng/soundicon.h",
+    "src/libespeak-ng/spect.h",
+    "src/libespeak-ng/speech.h",
+    // "src/libespeak-ng/sPlayer.h",
+    "src/libespeak-ng/ssml.h",
+    "src/libespeak-ng/synthdata.h",
+    "src/libespeak-ng/synthesize.h",
+    "src/libespeak-ng/translate.h",
+    // "src/libespeak-ng/translateword.h",
+    "src/libespeak-ng/voice.h",
+    "src/libespeak-ng/wavegen.h",
 };
 
 const no_install_headers = [_][]const u8{

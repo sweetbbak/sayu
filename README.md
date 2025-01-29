@@ -25,3 +25,10 @@ wget.exe https://pkg.machengine.org/zig/zig-windows-x86_64-0.14.0-dev.2577+27145
 # mac arm
 wget https://pkg.machengine.org/zig/zig-macos-aarch64-0.14.0-dev.2577+271452d22.tar.xz
 ```
+
+Run a naive TTS server:
+
+```sh
+sayu serve
+curl --http0.9 localhost:8080 --data '{"text": "Hello world, how are you doing?"}' --output - | aplay -r 22050 -c 1 -f S16_LE -t raw
+```

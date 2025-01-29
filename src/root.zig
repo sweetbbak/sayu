@@ -3,11 +3,22 @@
 //! start with main.zig instead.
 const std = @import("std");
 const testing = std.testing;
+const mem = std.mem;
+const piper = @import("piper.zig");
+const phoneme = @import("phonemize.zig");
+const synth = @import("synth.zig");
+const pid = @import("phoneme_id.zig");
+const Allocator = std.mem.Allocator;
+const logFn = @import("logger/log.zig").myLogFn;
+const log = std.log;
 
-export fn add(a: i32, b: i32) i32 {
-    return a + b;
-}
+const allocator = std.heap.c_allocator;
 
-test "basic add functionality" {
-    try testing.expect(add(3, 7) == 10);
+export fn add(
+    text: [*:0]const u8,
+    rate: f32,
+    model: [*:0]const u8,
+) callconv(.C) void {
+    log.info("initializing...", .{});
+    piper.synth_text(allocator, mem.span(model), @ptrCast(mem.span(text)), .{ .lengthScale = rate }, .{ .write_stdout = true }) catch unreachable;
 }
