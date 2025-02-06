@@ -20,5 +20,5 @@ export fn add(
     model: [*:0]const u8,
 ) callconv(.C) void {
     log.info("initializing...", .{});
-    piper.synth_text(allocator, mem.span(model), @ptrCast(mem.span(text)), .{ .lengthScale = rate }, .{ .write_stdout = true }) catch unreachable;
+    piper.synth_text_stdout(allocator, mem.span(model), @ptrCast(mem.span(text)), .{ .lengthScale = rate }) catch unreachable;
 }

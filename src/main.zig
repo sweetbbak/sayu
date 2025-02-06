@@ -31,6 +31,7 @@ pub const Options = struct {
     model: ?[:0]const u8 = null,
     speech_rate: ?f32 = null,
     args: ?[]const u8 = null,
+    text: ?[]const u8 = null,
 };
 
 inline fn check_arg(args: [][:0]u8, index: usize) void {
@@ -45,13 +46,13 @@ inline fn check_arg(args: [][:0]u8, index: usize) void {
 }
 
 const help_msg = 
-    \\
     \\usage: sayu [opts]
-    \\  -h, --help           print this message
-    \\  -s, --stdout         write binary audio to stdout (16-bit 22050hz little endian)
-    \\  -o, --output <file>  write to the given wav file
-    \\  -i, --input  <file>  get input text from the given file
-    \\  -r, --rate   <float> speech rate (0-1)
+    \\  -h, --help            print this message
+    \\  -s, --stdout          write binary audio to stdout (16-bit 22050hz little endian)
+    \\  -o, --output <file>   write to the given wav file
+    \\  -i, --input  <file>   get input text from the given file
+    \\  -r, --rate   <float>  speech rate (0-1)
+    \\  -t, --text   <string> speech rate (0-1)
     \\
     \\examples:
     \\  sayu --rate 0.5 --stdout --input ~/00001.txt | aplay -r 22050 -c 1 -f S16_LE -t raw
@@ -91,6 +92,10 @@ fn parse_flags(args: [][:0]u8) !Options {
             check_arg(args, i);
             opts.speech_rate = try std.fmt.parseFloat(f32, args[i + 1]);
         }
+        if (mem.eql(u8, "--text", arg) or mem.eql(u8, "-t", arg)) {
+            check_arg(args, i);
+            opts.text = args[i + 1];
+        }
         if (mem.startsWith(u8, "--", args[i])) {
             log.err("unknown argument {s}", .{args[i]});
             std.process.exit(1);
@@ -112,7 +117,6 @@ pub fn main() !void {
 
     for (args) |value| {
         if (mem.eql(u8, value, "serve")) {
-            // tts server
             // titties server
             try serve.serve_main("127.0.0.1", 8080);
             std.process.exit(0);
@@ -132,28 +136,19 @@ pub fn main() !void {
         text = try file.readToEndAlloc(allocator, 1024 * 10);
     }
 
-    var out: piper.Output = .{};
-
-    if (opts.stdout) {
-        out.write_stdout = true;
-    } else if (opts.output) |outfile| {
-        out.output = outfile;
-    } else {
-        out.output = "output.wav";
+    if (opts.text) |input_txt| {
+        text = input_txt;
     }
 
     var cfg: synth.Config = .{};
     if (opts.speech_rate) |rate| {
         if (rate > 1) {
-            cfg.noiseScale = @max(1 - rate, 0.1);
-            cfg.lengthScale = @max(1 + rate, 1.0);
+            cfg.lengthScale = @max(2 - rate, 0.3);
+        } else if (rate < 1) {
+            cfg.lengthScale = @min(1 + rate, 2.0);
+        } else {
+            cfg.lengthScale = rate;
         }
-        if (rate <= 1) {
-            cfg.noiseScale = @max(1 + rate, 1.0);
-            cfg.lengthScale = @max(1 + rate, 1.0);
-        }
-
-        cfg.lengthScale = rate;
     }
 
     var model: [:0]const u8 = "";
@@ -164,6 +159,13 @@ pub fn main() !void {
     }
 
     log.info("initializing...", .{});
-    try piper.synth_text(allocator, model, @ptrCast(text), cfg, out);
+    if (opts.stdout) {}
+
+    if (opts.stdout) {
+        try piper.synth_text_stdout(allocator, model, @ptrCast(text), cfg);
+    } else if (opts.output) |outfile| {
+        try piper.synth_text_to_wav(allocator, model, @ptrCast(text), cfg, outfile);
+    }
+
     std.process.exit(0);
 }

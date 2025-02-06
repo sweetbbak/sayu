@@ -110,12 +110,25 @@ pub const Output = struct {
     output: []const u8 = "output.wav",
 };
 
-pub fn synth_text(
+pub fn synth_text_stdout(
     allocator: Allocator,
     model_path: [:0]const u8,
     text: [:0]const u8,
     config: synth.Config,
-    write_to: Output,
+) !void {
+    const stdout_file = std.io.getStdOut().writer();
+    var bw = std.io.bufferedWriter(stdout_file);
+    const stdout = bw.writer();
+
+    try synth_writer(allocator, model_path, text, stdout, config);
+}
+
+pub fn synth_text_to_wav(
+    allocator: Allocator,
+    model_path: [:0]const u8,
+    text: [:0]const u8,
+    config: synth.Config,
+    wav_name: []const u8,
 ) !void {
     const onnx_instance = try synth.load(allocator, model_path);
 
@@ -127,15 +140,11 @@ pub fn synth_text(
 
     const lines = try output.toSlice();
 
-    // var file: std.fs.File = undefined;
     const sample_rate: usize = 22050;
     const num_channels: usize = 1;
-    // var encoder = undefined;
-    var file = try std.fs.cwd().createFile(write_to.output, .{});
-    var encoder = try wav.encoder(i16, file.writer(), file.seekableStream(), sample_rate, num_channels);
 
-    if (!write_to.write_stdout) {
-    }
+    var file = try std.fs.cwd().createFile(wav_name, .{});
+    var encoder = try wav.encoder(i16, file.writer(), file.seekableStream(), sample_rate, num_channels);
 
     for (lines) |value| {
         const phoneme_ids = try pid.phonemes_to_ids(allocator, value, .{}, res);
@@ -144,18 +153,11 @@ pub fn synth_text(
         const audio = try synth.infer(allocator, onnx_instance, phoneme_ids, config);
         defer allocator.free(audio);
 
-        if (write_to.write_stdout) {
-            try write_audio_stdout(audio);
-        } else {
-            // Write out samples as 16-bit PCM int.
-            try encoder.write(i16, audio);
-        }
+        try encoder.write(i16, audio);
     }
 
-    if (!write_to.write_stdout) {
-        try encoder.finalize();
-        file.close();
-    }
+    try encoder.finalize();
+    file.close();
 }
 
 pub fn synth_file(
